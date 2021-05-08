@@ -1,0 +1,213 @@
+This project will take you through the process of mashing up data from two different APIs to make movie recommendations. 
+The TasteDive API lets you provide a movie (or bands, TV shows, etc.) as a query input, and returns a set of related items. The OMDB API lets you provide a movie title
+as a query input and get back data about the movie, including scores from various review sites (Rotten Tomatoes, IMDB, etc.).
+You will put those two together. You will use TasteDive to get related movies for a whole list of titles. You’ll combine the resulting lists of related movies,
+and sort them according to their Rotten Tomatoes scores (which will require making API calls to the OMDB API.)
+To avoid problems with rate limits and site accessibility, we have provided a cache file with results for all the queries you need to make to both OMDB and TasteDive.
+Just use requests_with_caching.get() rather than requests.get(). If you’re having trouble, you may not be formatting your queries properly, 
+or you may not be asking for data that exists in our cache. We will try to provide as much information as we can to help guide you to form queries for which data exists 
+in the cache. Your first task will be to fetch data from TasteDive. The documentation for the API is at https://tastedive.com/read/api.
+Define a function, called get_movies_from_tastedive. It should take one input parameter, a string that is the name of a movie or music artist. 
+The function should return the 5 TasteDive results that are associated with that string; be sure to only get movies, not other kinds of media. 
+It will be a python dictionary with just one key, ‘Similar’. Try invoking your function with the input “Black Panther”.
+HINT: Be sure to include only q, type, and limit as parameters in order to extract data from the cache. If any other parameters are included, 
+then the function will not be able to recognize the data that you’re attempting to pull from the cache. 
+Remember, you will not need an api key in order to complete the project, because all data will be found in the cache.'''
+
+def get_movies_from_tastedive(mov_or_art_nam):
+    d = {'q':'{}'.format(mov_or_art_nam),'type':'movies','limit':5}
+    response = requests_with_caching.get('https://tastedive.com/api/similar', params = d)
+    return response.json()
+
+print(get_movies_from_tastedive("Bridesmaids"))
+print(get_movies_from_tastedive("Black Panther"))
+
+
+
+
+'''Please copy the completed function from above into this active code window. 
+Next, you will need to write a function that extracts just the list of movie titles from a dictionary returned by get_movies_from_tastedive. 
+Call it extract_movie_titles.'''
+
+def get_movies_from_tastedive(mov_or_art_nam):
+    d = {'q':'{}'.format(mov_or_art_nam),'type':'movies','limit':5}
+    response = requests_with_caching.get('https://tastedive.com/api/similar', params = d)
+    return response.json()
+
+def extract_movie_titles(movie_dict):
+    li = movie_dict['Similar']['Results']
+    res =[di['Name'] for di in li]
+    return res
+movie_dict = get_movies_from_tastedive('Black Panther')
+related_movie_lst = extract_movie_titles(movie_dict)
+
+print(movie_dict)
+
+print(related_movie_lst)
+
+
+
+
+'''Please copy the completed functions from the two code windows above into this active code window. 
+Next, you’ll write a function, called get_related_titles. It takes a list of movie titles as input. 
+It gets five related movies for each from TasteDive, extracts the titles for all of them, and combines them all into a single list. 
+Don’t include the same movie twice.'''
+
+import requests_with_caching
+import json
+
+def get_movies_from_tastedive(mov_or_art_nam):
+    d = {'q':'{}'.format(mov_or_art_nam),'type':'movies','limit':5}
+    response = requests_with_caching.get('https://tastedive.com/api/similar', params = d)
+    return response.json()
+
+def extract_movie_titles(movie_dict):
+    li = movie_dict['Similar']['Results']
+    res =[di['Name'] for di in li]
+    return res
+
+def get_related_titles(mov_lst):
+    if len(mov_lst) == 0:
+        return []
+    res_lst = []
+    for mov in mov_lst:
+        mov_dict = get_movies_from_tastedive(mov)
+        temp_mov_lst = extract_movie_titles(mov_dict)
+        for temp_mov in temp_mov_lst:
+            if not temp_mov in res_lst:
+                res_lst.append(temp_mov)
+
+    return res_lst
+
+ls = ["Black Panther", "Captain Marvel"]
+
+print(get_related_titles(ls))
+
+
+
+
+'''Your next task will be to fetch data from OMDB. The documentation for the API is at https://www.omdbapi.com/.
+Define a function called get_movie_data. It takes in one parameter which is a string that should represent the title of a movie you want to search. 
+The function should return a dictionary with information about that movie.
+Again, use requests_with_caching.get(). For the queries on movies that are already in the cache, you won’t need an api key. 
+You will need to provide the following keys: t and r.
+As with the TasteDive cache, be sure to only include those two parameters in order to extract existing data from the cache.'''
+import requests_with_caching
+import json
+
+def get_movie_data(mov_or_art_nam):
+    new_d = {'t':'{}'.format(mov_or_art_nam), 'r':'json'}
+    response = requests_with_caching.get('http://www.omdbapi.com/', params = new_d)
+    return response.json()
+
+print(get_movie_data("Venom"))
+print(get_movie_data("Baby Mama"))
+
+
+
+
+'''Please copy the completed function from above into this active code window. Now write a function called get_movie_rating. 
+It takes an OMDB dictionary result for one movie and extracts the Rotten Tomatoes rating as an integer. 
+For example, if given the OMDB dictionary for “Black Panther”, it would return 97. If there is no Rotten Tomatoes rating, return 0.'''
+
+import requests_with_caching
+import json
+
+def get_movie_data(mov_or_art_nam):
+    new_d = {'t':'{}'.format(mov_or_art_nam), 'r':'json'}
+    response = requests_with_caching.get('http://www.omdbapi.com/', params = new_d)
+    return response.json()
+    
+def get_movie_rating(movie_dict):
+    rating_lst = movie_dict['Ratings']
+    print('rating list',rating_lst)
+    for di in rating_lst:
+        if di['Source'] == 'Rotten Tomatoes':
+            return int(di['Value'][:-1])
+    return 0
+    
+print(get_movie_rating(get_movie_data("Deadpool 2")))
+
+
+
+
+'''Now, you’ll put it all together. Don’t forget to copy all of the functions that you have previously defined into this code window. 
+Define a function get_sorted_recommendations. It takes a list of movie titles as an input. It returns a sorted list of related movie titles as output, 
+up to five related movies for each input movie title. The movies should be sorted in descending order by their Rotten Tomatoes rating, 
+as returned by the get_movie_rating function. 
+Break ties in reverse alphabetic order, so that ‘Yahşi Batı’ comes before ‘Eyyvah Eyvah’.'''
+
+import requests
+import json
+
+def get_movies_from_tastedive(mov_or_art_nam):
+    d = {'q':'{}'.format(mov_or_art_nam),'type':'movies','limit':5}
+    response = requests.get('https://tastedive.com/api/similar', params = d)
+    return response.json()
+
+data1_dict = get_movies_from_tastedive('Black Panther')
+print('get movies from function working',data1_dict)
+
+def extract_movie_titles(movie_dict):
+    li = movie_dict['Similar']['Results']
+    res =[di['Name'] for di in li]
+    return res
+
+data1_lst = extract_movie_titles(data1_dict)
+print('extract_movie_titles working', data1_lst)
+
+def get_related_titles(mov_lst):
+    if len(mov_lst) == 0:
+        return []
+    res_lst = []
+    for mov in mov_lst:
+        mov_dict = get_movies_from_tastedive(mov)
+        temp_mov_lst = extract_movie_titles(mov_dict)
+        for temp_mov in temp_mov_lst:
+            if not temp_mov in res_lst:
+                res_lst.append(temp_mov)
+
+    return res_lst
+
+data1_final_lst = get_related_titles(data1_lst)
+print('get_related_titles working',data1_final_lst)
+
+
+def get_movie_data(mov_or_art_nam):
+    new_d = {'t':'{}'.format(mov_or_art_nam), 'r':'json','apikey':'c5e9e0b8'}
+    response = requests.get('http://www.omdbapi.com/', params = new_d)
+    return response.json()
+    
+data2_dict = get_movie_data('Black Panther')
+print('get_movie_data working',data2_dict)
+
+def get_movie_rating(movie_dict):
+    rating_lst = movie_dict['Ratings']
+    print('rating list',rating_lst)
+    for di in rating_lst:
+        if di['Source'] == 'Rotten Tomatoes':
+            return int(di['Value'][:-1])
+    return 0
+
+data2_lst = get_movie_rating(data2_dict)
+print('get_movie_rating working',data2_lst)
+
+def get_sorted_recommendations(mov_nam_lst):
+    mov_data_lst = []
+
+    for mov in mov_nam_lst:
+        mov_dict = get_movies_from_tastedive(mov)
+        related_mov_lst = extract_movie_titles(mov_dict)
+        temp_final_lst = get_related_titles(related_mov_lst)
+        print('first loop doing fine')
+        
+        for each_mov in temp_final_lst:
+            mov_dat_di = get_movie_data(each_mov)
+            rotten_scr = get_movie_rating(mov_dat_di)
+            new_tup = (rotten_scr,each_mov)
+            mov_data_lst.append(new_tup)
+            print('second loop doing fine')
+    mov_data_lst_sorted_tup = sorted(mov_data_lst, reverse=True)
+    final_result = [name for scr,name in mov_data_lst_sorted_tup]
+
+    return final_result
