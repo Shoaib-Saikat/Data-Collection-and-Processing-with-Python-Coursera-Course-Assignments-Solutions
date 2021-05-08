@@ -137,24 +137,18 @@ up to five related movies for each input movie title. The movies should be sorte
 as returned by the get_movie_rating function. 
 Break ties in reverse alphabetic order, so that ‘Yahşi Batı’ comes before ‘Eyyvah Eyvah’.'''
 
-import requests
+import requests_with_caching
 import json
 
 def get_movies_from_tastedive(mov_or_art_nam):
     d = {'q':'{}'.format(mov_or_art_nam),'type':'movies','limit':5}
-    response = requests.get('https://tastedive.com/api/similar', params = d)
+    response = requests_with_caching.get('https://tastedive.com/api/similar', params = d)
     return response.json()
-
-data1_dict = get_movies_from_tastedive('Black Panther')
-print('get movies from function working',data1_dict)
 
 def extract_movie_titles(movie_dict):
     li = movie_dict['Similar']['Results']
     res =[di['Name'] for di in li]
     return res
-
-data1_lst = extract_movie_titles(data1_dict)
-print('extract_movie_titles working', data1_lst)
 
 def get_related_titles(mov_lst):
     if len(mov_lst) == 0:
@@ -169,18 +163,11 @@ def get_related_titles(mov_lst):
 
     return res_lst
 
-data1_final_lst = get_related_titles(data1_lst)
-print('get_related_titles working',data1_final_lst)
-
-
 def get_movie_data(mov_or_art_nam):
-    new_d = {'t':'{}'.format(mov_or_art_nam), 'r':'json','apikey':'c5e9e0b8'}
-    response = requests.get('http://www.omdbapi.com/', params = new_d)
+    new_d = {'t':'{}'.format(mov_or_art_nam), 'r':'json'}
+    response = requests_with_caching.get('http://www.omdbapi.com/', params = new_d)
     return response.json()
     
-data2_dict = get_movie_data('Black Panther')
-print('get_movie_data working',data2_dict)
-
 def get_movie_rating(movie_dict):
     rating_lst = movie_dict['Ratings']
     print('rating list',rating_lst)
@@ -189,25 +176,20 @@ def get_movie_rating(movie_dict):
             return int(di['Value'][:-1])
     return 0
 
-data2_lst = get_movie_rating(data2_dict)
-print('get_movie_rating working',data2_lst)
-
 def get_sorted_recommendations(mov_nam_lst):
-    mov_data_lst = []
+    mov_data_lst = get_related_titles(mov_nam_lst)
+    new_li = []
+    for mov in mov_data_lst:
+        mov_data_dict = get_movie_data(mov)
+        rotten_scr = get_movie_rating(mov_data_dict)
+        new_tup = (rotten_scr, mov)
+        new_li.append(new_tup)
+    sorted_lst = sorted(new_li,reverse=True)
+    final_lst = [nam for scr,nam in sorted_lst]
+    return final_lst
+    
 
-    for mov in mov_nam_lst:
-        mov_dict = get_movies_from_tastedive(mov)
-        related_mov_lst = extract_movie_titles(mov_dict)
-        temp_final_lst = get_related_titles(related_mov_lst)
-        print('first loop doing fine')
-        
-        for each_mov in temp_final_lst:
-            mov_dat_di = get_movie_data(each_mov)
-            rotten_scr = get_movie_rating(mov_dat_di)
-            new_tup = (rotten_scr,each_mov)
-            mov_data_lst.append(new_tup)
-            print('second loop doing fine')
-    mov_data_lst_sorted_tup = sorted(mov_data_lst, reverse=True)
-    final_result = [name for scr,name in mov_data_lst_sorted_tup]
+l = ["Bridesmaids", "Sherlock Holmes"]
+recommended = get_sorted_recommendations(l)
 
-    return final_result
+print(recommended)
